@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Fond aux coins arrondis -->
+  <rect width="512" height="512" rx="112" fill="#ffffff" stroke="#e2e8f0" stroke-width="16" />
+  
+  <!-- Faisceau lumineux (rouge à gauche, bleu à droite) -->
+  <path d="M60 280 L180 280" stroke="#ef4444" stroke-width="24" stroke-linecap="round" />
+  <path d="M332 280 L452 280" stroke="#3b82f6" stroke-width="24" stroke-linecap="round" />
+  
+  <!-- Tube à essai (verre) -->
+  <path d="M200 120 L200 340 A 56 56 0 0 0 312 340 L312 120" fill="none" stroke="#94a3b8" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" />
+  
+  <!-- Liquide Xanthochromique (jaune/orange dans le fond du tube) -->
+  <path d="M216 220 L216 340 A 40 40 0 0 0 296 340 L296 220 Z" fill="#fbbf24" />
+  
+  <!-- Point focal lumineux au centre -->
+  <circle cx="256" cy="280" r="14" fill="#ffffff" />
+</svg>

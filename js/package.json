@@ -1,6 +1,7 @@
 {
   "name": "xantho-ai",
   "version": "1.1.0",
+  "author": "Dr Floris CHABRUN, Laboratory of Biochemistry and Molecular Biology, University Hospital of Angers",
   "description": "Analyse spectrophotométrique du LCR",
   "main": "dist/main.js",
   "scripts": {
@@ -14,7 +15,8 @@
       "output": "release"
     },
     "win": {
-      "target": ["portable"]
+      "target": "portable",
+	  "icon": "assets/icon.ico"
     }
   },
   "devDependencies": {
