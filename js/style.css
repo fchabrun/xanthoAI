@@ -1,3 +1,7 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 :root {
   --bg-color: #f3f4f6;
   --panel-bg: #ffffff;
@@ -9,7 +13,7 @@
 
 html {
   /* La taille de base s'ajustera dynamiquement entre 14px (petits écrans) et 20px (grands écrans) */
-  font-size: clamp(12px, 1vw + 6px, 18px);
+  font-size: clamp(12px, 1vw + 6px, 16px);
 }
 
 body {
@@ -22,7 +26,7 @@ body {
 .container {
   width: 100%;
   margin: 0;
-  padding: 3vh 3vw; /* Marges qui respirent selon la taille de l'écran */
+  padding: 1vh 3vw; /* Marges qui respirent selon la taille de l'écran */
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -31,22 +35,60 @@ body {
 
 header {
   display: flex;
-  align-items: center;
-  gap: 20px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 15px;
   margin-bottom: 20px;
 }
 
 .title-group {
-  max-width: 50%; /* Bloque la largeur à la moitié de l'écran, forçant le texte à passer à la ligne */
+  max-width: 100%; /* Prend toute la largeur disponible */
   margin: 0px;
 }
 
+.file-group {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+}
+
+.input-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.input-group label {
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.input-group input {
+  padding: 0.5em;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 1rem;
+  color: var(--text-main);
+  width: 130px;
+}
+
 #btn-load {
-  margin-left: auto; /* Absorbe tout l'espace vide restant, poussant le bouton et le nom du fichier tout à droite */
+  margin-left: 0; /* Retiré pour ne plus pousser à droite */
+}
+
+.meta-panel {
+  background: var(--panel-bg);
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  display: flex;
+  gap: 40px;
 }
 
 .subtitle {
-  font-size: 1.2em; /* Un peu plus petit que la police de base */
+  font-size: 0.9em; /* Un peu plus petit que la police de base */
   color: #6b7280; /* Gris discret */
   display: block; /* S'assure qu'il passe bien à la ligne en dessous du titre */
   margin-top: 0px;
@@ -75,7 +117,8 @@ main {
 }
 
 .results-panel {
-  flex: 0 0 300px;
+  flex: 1; /* Prend 1 portion de l'espace total (~33%) */
+  min-width: 350px; /* Sécurité pour éviter que le texte ne s'écrase sur petit écran */
   background: var(--panel-bg);
   padding: 20px;
   border-radius: 8px;
@@ -87,7 +130,7 @@ main {
 
 .metric h3 {
   margin: 0 0 5px 0;
-  font-size: 0.9rem;
+  font-size: 1.0rem;
   color: #6b7280;
 }
 
@@ -107,7 +150,7 @@ main {
 }
 
 .chart-container {
-  flex: 1;
+  flex: 2; /* Prend 2 portions de l'espace total (~66%) */
   background: var(--panel-bg);
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -179,7 +222,13 @@ main {
 .slider-group {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
+}
+
+.slider-control-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .slider-group label {
@@ -193,44 +242,177 @@ main {
 }
 
 .slider-group input[type="range"] {
-  width: 150px;
+  width: 300px;
   cursor: pointer;
 }
 
+.btn-step {
+  background-color: var(--panel-bg);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.btn-step:hover {
+  background-color: var(--bg-color);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.num-input {
+  width: 4.5em !important;
+  padding: 0.3em;
+  text-align: center;
+  font-size: 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.unit {
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm; /* Marges de la page PDF A4 */
+  }
+  
   /* Masquer les éléments interactifs et les contrôles */
   #btn-load, .controls-panel, #btn-export-pdf {
     display: none !important;
   }
   
-  /* Ajuster la page pour un rendu A4 */
   body, .container {
     background-color: #ffffff;
     height: auto;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  #file-name::before {
+    content: "Fichier : ";
+    font-weight: 600;
+    color: #000;
+  }
+  
+  #file-name {
+    display: block;
+    margin-bottom: 15px;
+    font-size: 1.05rem;
+  }
+  
+  .meta-panel {
+    box-shadow: none;
+    border: 1px solid var(--border);
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    width: 100% !important;
+    display: flex;
+    flex-wrap: nowrap; /* Force tous les éléments à rester sur 1 seule ligne */
+    justify-content: space-between; /* Espace uniformément les 3 groupes */
+    align-items: center;
+  }
+  
+  .input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap; /* Empêche le titre et la valeur d'être coupés sur 2 lignes */
+  }
+  
+  .input-group input {
+    border: none;
+    background: transparent;
     padding: 0;
-    margin: 0;
+    font-weight: bold;
+    color: black;
+  }
+  
+  /* Restreindre la largeur invisible des inputs pour le PDF */
+  #op-code {
+    width: 60px !important; /* Assez pour 4 à 6 caractères */
+  }
+  
+  #sample-id {
+    width: 90px !important; /* Assez pour 9 chiffres */
+  }
+  
+  #pdf-footer {
+    display: block !important;
+    position: fixed;
+    bottom: 10px;
+    left: 0;
+    width: 100%;
+    text-align: justify; /* Aligné à gauche et justifié pour un rendu plus propre */
+    font-size: 0.65rem; /* Police plus petite pour faire tenir le bloc */
+    line-height: 1.3;
+    color: #6b7280;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
   }
   
   /* Réorganiser le flexbox pour empiler les résultats au-dessus du graphique */
   main {
     flex-direction: column;
     display: block;
+    width: 100% !important;
+  }
+  
+  .meta-panel {
+    box-shadow: none;
+    border: 1px solid var(--border);
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    width: 100% !important;
+    display: flex;
+    justify-content: space-between;
   }
   
   .results-panel {
     box-shadow: none;
     border: 1px solid var(--border);
-    margin-bottom: 20px;
-    width: 100%;
+    margin-bottom: 15px;
+    width: 100% !important;
+    padding: 15px;
     page-break-inside: avoid;
   }
   
   .chart-container {
     box-shadow: none;
     border: 1px solid var(--border);
-    width: 100%;
-    height: 500px; /* Hauteur fixe pour forcer Plotly à bien s'imprimer */
+    width: 100% !important;
+    max-width: 100% !important;
     page-break-inside: avoid;
+    /* Retrait de height fixe et overflow: hidden */
+    height: auto !important; 
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  
+  #plotly-div, 
+  .js-plotly-plot, 
+  .plot-container, 
+  .svg-container, 
+  .main-svg {
+    width: 100% !important;
+    max-width: 100% !important;
   }
   
   .warnings-box {

@@ -11,12 +11,29 @@
   <div class="container">
 	<header>
       <div class="title-group">
-		<h1>Analyse spectrophotométrique du LCR<br>à la recherche de pigments xanthochromiques</h1>
-        <span class="subtitle">CHU Angers</span>
+        <h1>Analyse spectrophotométrique du LCR à la recherche de pigments xanthochromiques</h1>
+        <span class="subtitle">Version 1.1.0-2026-11-10. Laboratoire de biochimie et biologie moléculaire, CHU Angers. <i>D'après les recommandations d'interprétation de Nowicki et al., Ann Biol Clin (Paris) 2024;82(5):501-518. doi: 10.1684/abc.2024.1920. et Collet et al., Ann Clin Biochem 2012; 49: 177–183. doi: 10.1258/acb.2011.011048.</i></span>
       </div>
-      <button id="btn-load">Charger un fichier spectrophotométrique</button>
-      <span id="file-name">Aucun fichier sélectionné</span>
+      <div class="file-group">
+        <button id="btn-load">Charger un fichier spectrophotométrique</button>
+        <span id="file-name">Aucun fichier sélectionné</span>
+      </div>
     </header>
+	
+<div class="meta-panel">
+      <div class="input-group">
+        <label for="op-code">Identifiant opérateur :</label>
+        <input type="text" id="op-code" placeholder="XXXXXX" minlength="3" maxlength="6">
+      </div>
+      <div class="input-group">
+        <label for="sample-id">N° échantillon :</label>
+        <input type="text" id="sample-id" placeholder="275000000" pattern="\d{9}" maxlength="9">
+      </div>
+      <div class="input-group">
+        <label>Date :</label>
+        <span id="analysis-date" style="font-weight: 600; color: var(--text-main);">--/--/---- --:--</span>
+      </div>
+    </div>
     
     <div class="controls-panel">
       <div class="radio-group">
@@ -24,14 +41,32 @@
         <label><input type="radio" name="calc-mode" value="manual"> Tangente manuelle</label>
       </div>
 	  
+      <div class="radio-group" style="border-left: 2px solid var(--border); padding-left: 20px;">
+        <label><input type="radio" name="scale-mode" value="normal" checked> Échelle normale</label>
+        <label><input type="radio" name="scale-mode" value="zoomed"> Échelle zoomée</label>
+      </div>
+	  
 	  <div id="manual-inputs" style="display: none;">
         <div class="slider-group">
-          <label>&lambda; point gauche: <span id="val-manual-left" class="slider-val">380</span> nm</label>
-          <input type="range" id="manual-left" value="380" min="350" max="600" step="1">
+          <label for="manual-left">&lambda; point gauche :</label>
+          <div class="slider-control-row">
+            <button type="button" class="btn-step" id="btn-left-dec" title="Reculer de 1 nm">-</button>
+            <input type="range" id="manual-left" value="380" min="350" max="600" step="1">
+            <button type="button" class="btn-step" id="btn-left-inc" title="Avancer de 1 nm">+</button>
+            <input type="number" id="num-left" value="380" min="350" max="600" step="1" class="num-input">
+            <span class="unit">nm</span>
+          </div>
         </div>
+
         <div class="slider-group">
-          <label>&lambda; point droit: <span id="val-manual-right" class="slider-val">500</span> nm</label>
-          <input type="range" id="manual-right" value="500" min="400" max="750" step="1">
+          <label for="manual-right">&lambda; point droit :</label>
+          <div class="slider-control-row">
+            <button type="button" class="btn-step" id="btn-right-dec" title="Reculer de 1 nm">-</button>
+            <input type="range" id="manual-right" value="500" min="400" max="750" step="1">
+            <button type="button" class="btn-step" id="btn-right-inc" title="Avancer de 1 nm">+</button>
+            <input type="number" id="num-right" value="500" min="400" max="750" step="1" class="num-input">
+            <span class="unit">nm</span>
+          </div>
         </div>
       </div>
 	  
@@ -45,9 +80,15 @@
     </div>
 	
     <main>
+	
+	<main>
       <div class="results-panel">
         <div class="metric">
-          <h3>NOA (net oxyhemoglobin absorbance - 415 nm)</h3>
+          <h3>Points de tangente (&lambda;)</h3>
+          <p id="val-tangent-pts" style="font-size: 1.1rem; color: #4b5563; font-weight: 500;">--</p>
+        </div>
+        <div class="metric">
+          <h3 id="noa-title">NOA (net oxyhemoglobin absorbance - --- nm)</h3>
           <p id="val-noa">--</p>
         </div>
         <div class="metric">
@@ -66,7 +107,16 @@
         <div id="plotly-div"></div>
       </div>
     </main>
-  </div>
+	
+    <div id="pdf-footer" style="display: none;">
+      <strong>Références :</strong>
+      <ol style="margin-top: 5px; margin-bottom: 0; padding-left: 25px;">
+        <li>Nowicki N, Allouche S, Bats ML, Bendavid C, Corbel EB, Brailova M, Brunel V, Chabanne R, Descombes G, Glady L, Guergour D, Moisset X, Morineau G, Raynor A, Bouvier D. Approches clinico-biologiques de la recherche spectrophotométrique d’oxyhémoglobine et de bilirubine dans le LCS pour la prise en charge de l’hémorragie méningée [Clinical-biological approaches to the spectrophotometric detection of oxyhemoglobin and bilirubin in CSF in the management of aneurysmal subarachnoid hemorrhage]. Ann Biol Clin (Paris). 2024 Nov 30;82(5):501-518. French. doi: 10.1684/abc.2024.1920. PMID: 39612298.</li>
+        <li style="margin-top: 4px;">Collet N, Garcelon N, Robbe V, Lucas-Clerc C, Cuggia M, Bendavid C. Bioinformatic software for cerebrospinal fluid spectrophotometry in suspected subarachnoid haemorrhage. Ann Clin Biochem. 2012 Mar;49(Pt 2):177-83. doi: 10.1258/acb.2011.011048. Epub 2012 Feb 2. PMID: 22302151.</li>
+      </ol>
+    </div>
+	
+  </div> <!-- Fin de div.container -->
   
   <script src="./dist/renderer.js"></script>
 </body>

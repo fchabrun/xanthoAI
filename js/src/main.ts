@@ -14,6 +14,8 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, '../index.html'));
+  
+  //mainWindow.webContents.openDevTools(); // to get devtools (js console, css update on-the-fly)
 }
 
 app.whenReady().then(() => {
@@ -82,4 +84,16 @@ ipcMain.handle('dialog:exportPdf', async (event, defaultFilename: string) => {
   } catch (error: any) {
     return { success: false, error: error.message };
   }
+});
+
+ipcMain.handle('dialog:showError', async (event, title: string, message: string) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  
+  await dialog.showMessageBox(win, {
+    type: 'error',
+    title: title,
+    message: message,
+    buttons: ['OK']
+  });
 });

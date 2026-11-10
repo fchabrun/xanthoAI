@@ -1,7 +1,7 @@
 {
   "name": "spectro-lcr-electron",
-  "version": "1.0.0",
-  "description": "Application d'analyse spectrophotométrique du LCR (NOA/NBA)",
+  "version": "1.1.0",
+  "description": "Analyse spectrophotométrique du LCR",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",

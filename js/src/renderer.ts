@@ -1,7 +1,9 @@
 declare const electronAPI: {
   openFile: () => Promise<{ fileName: string, data: string } | null>;
   exportPdf: (defaultFilename: string) => Promise<{ success: boolean, canceled?: boolean, filePath?: string, error?: string }>;
+  showError: (title: string, message: string) => Promise<void>; // Ajout ici
 };
+
 declare const Plotly: any;
 
 interface SpectroPoint { wl: number; abs: number; smoothAbs?: number; tangent?: number; }
@@ -14,7 +16,8 @@ const INF_POINT_RIGHT_LLOW = 479;
 const INF_POINT_RIGHT_LHIGH = 550;
 const CHECK_LEFT = 350;
 const CHECK_RIGHT = 750;
-const HB_LAMBDA = 415;
+const HB_LAMBDA_MIN = 410;
+const HB_LAMBDA_MAX = 418;
 const BL_LAMBDA = 476;
 const WARNING_LEVEL_OK = 0;
 const WARNING_LEVEL_WARN = 1;
@@ -43,26 +46,111 @@ document.getElementsByName('calc-mode').forEach(radio => {
   });
 });
 
-document.getElementById('manual-left')?.addEventListener('input', (e) => { 
-  document.getElementById('val-manual-left')!.innerText = (e.target as HTMLInputElement).value;
-  if (currentRawDataExists) updateAnalysis(); 
-});
-document.getElementById('manual-right')?.addEventListener('input', (e) => { 
-  document.getElementById('val-manual-right')!.innerText = (e.target as HTMLInputElement).value;
-  if (currentRawDataExists) updateAnalysis(); 
+// Synchronisation bidirectionnelle Slider <-> Number Input <-> Boutons +/- <-> Molette
+function bindSliderAndNumber(
+  rangeId: string, 
+  numId: string, 
+  decBtnId: string, 
+  incBtnId: string, 
+  min: number, 
+  max: number
+) {
+  const rangeEl = document.getElementById(rangeId) as HTMLInputElement;
+  const numEl = document.getElementById(numId) as HTMLInputElement;
+  const decBtn = document.getElementById(decBtnId);
+  const incBtn = document.getElementById(incBtnId);
+
+  const updateVal = (newVal: number) => {
+    const clamped = Math.max(min, Math.min(max, newVal));
+    rangeEl.value = clamped.toString();
+    numEl.value = clamped.toString();
+    if (currentRawDataExists) updateAnalysis();
+  };
+
+  // Glissement du slider
+  rangeEl?.addEventListener('input', () => updateVal(parseInt(rangeEl.value, 10)));
+  
+  // Saisie manuelle dans l'input numérique
+  numEl?.addEventListener('change', () => updateVal(parseInt(numEl.value, 10) || min));
+
+  // Clics sur boutons - et +
+  decBtn?.addEventListener('click', () => updateVal(parseInt(rangeEl.value, 10) - 1));
+  incBtn?.addEventListener('click', () => updateVal(parseInt(rangeEl.value, 10) + 1));
+
+  // Ajustement à la molette au survol du slider ou du champ numérique (pas de 1 nm)
+  const handleWheel = (e: WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 1 : -1;
+    updateVal(parseInt(rangeEl.value, 10) + delta);
+  };
+
+  rangeEl?.addEventListener('wheel', handleWheel, { passive: false });
+  numEl?.addEventListener('wheel', handleWheel, { passive: false });
+}
+
+// Initialisation des deux points de tangente
+bindSliderAndNumber('manual-left', 'num-left', 'btn-left-dec', 'btn-left-inc', 350, 600);
+bindSliderAndNumber('manual-right', 'num-right', 'btn-right-dec', 'btn-right-inc', 400, 750);
+
+document.getElementsByName('scale-mode').forEach(radio => {
+  radio.addEventListener('change', () => {
+    if (currentRawDataExists) updateAnalysis();
+  });
 });
 
 document.getElementById('btn-export-pdf')?.addEventListener('click', async () => {
+  const opCodeInput = document.getElementById('op-code') as HTMLInputElement;
+  const sampleIdInput = document.getElementById('sample-id') as HTMLInputElement;
+
+  const opCode = opCodeInput?.value.trim() || '';
+  const sampleId = sampleIdInput?.value.trim() || '';
+
+  // 1. Validation du code opérateur (4 à 6 caractères)
+  if (opCode.length < 3 || opCode.length > 6) {
+    await electronAPI.showError("Saisie invalide", "Génération impossible : veuillez rentrer votre code opérateur (3 à 6 caractères).");
+    return; // Stoppe l'export
+  }
+
+  // 2. Validation de l'identifiant (Exactement 9 chiffres)
+  if (sampleId.length !== 9 || !/^\d{9}$/.test(sampleId)) {
+    await electronAPI.showError("Saisie invalide", "Génération impossible : veuillez rentrer le numéro d'échantillon GLIMS à 9 chiffres.");
+    return; // Stoppe l'export
+  }
+  
+  // NOUVEAU : Force le redimensionnement vectoriel de Plotly avant l'impression
+  const plotlyDiv = document.getElementById('plotly-div');
+  if (plotlyDiv && typeof Plotly !== 'undefined') {
+	await Plotly.relayout(plotlyDiv, { 
+	  width: 700, 
+	  height: 350, 
+	  showlegend: false 
+	});
+  }
+
   const fileNameEl = document.getElementById('file-name');
-  // Récupérer le nom du fichier source pour nommer le PDF intelligemment
   const baseName = fileNameEl && fileNameEl.innerText !== 'Aucun fichier sélectionné' 
     ? fileNameEl.innerText.replace(/\.[^/.]+$/, "") 
     : 'Rapport_LCR';
   
-  const result = await electronAPI.exportPdf(`${baseName}.pdf`);
+  // Nomme le fichier de sortie en combinant le nom brut et le numéro d'échantillon
+  // Génération de la date et de l'heure locale (format YYYYMMDD_HHhMM)
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  const timestamp = `${yyyy}${mm}${dd}_${hh}h${min}`;
+
+  // Combinaison du nom de base, du code opérateur et de l'horodatage
+  const result = await electronAPI.exportPdf(`${baseName} ${opCode} ${timestamp}.pdf`);
+  
+  if (plotlyDiv && typeof Plotly !== 'undefined') {
+    await Plotly.relayout(plotlyDiv, { autosize: true, showlegend: true });
+  }
   
   if (result && !result.success && !result.canceled) {
-    alert("Erreur lors de l'enregistrement du PDF : " + result.error);
+    await electronAPI.showError("Erreur d'exportation", "Erreur lors de l'enregistrement du PDF : " + result.error);
   }
 });
 
@@ -181,6 +269,7 @@ function loadAndProcessFile(rawData: string, fileName: string) {
 
 function updateAnalysis() {
   const mode = (document.querySelector('input[name="calc-mode"]:checked') as HTMLInputElement).value;
+  const scaleMode = (document.querySelector('input[name="scale-mode"]:checked') as HTMLInputElement)?.value || 'normal';
   let leftWl = NaN, rightWl = NaN;
 
   // -- 1. Calcul de la Tangente --
@@ -230,6 +319,11 @@ function updateAnalysis() {
   // -- 2. Évaluation Clinique et Qualité --
   let warningLevel = WARNING_LEVEL_OK;
   const warningItems: string[] = [];
+  
+  if (scaleMode === 'zoomed') {
+    warningItems.push("Échelle zoomée sélectionnée : réinitialiser l'échelle sur 'Échelle normale' avant toute interprétation et génération du rapport PDF.");
+    warningLevel = Math.max(warningLevel, WARNING_LEVEL_STOP);
+  }
 
   // Amélioration : Distinction des absorbances négatives (faiblement vs significativement)
   const minAbs = Math.min(...currentSpectrum.map(p => p.abs));
@@ -281,7 +375,13 @@ function updateAnalysis() {
     warningLevel = Math.max(warningLevel, WARNING_LEVEL_WARN);
   }
 
-  const hbPt = currentSpectrum.find(p => p.wl === HB_LAMBDA) || currentSpectrum[0];
+  const hbCandidates = currentSpectrum.filter(p => p.wl >= HB_LAMBDA_MIN && p.wl <= HB_LAMBDA_MAX);
+  const hbPt = hbCandidates.reduce((maxPt, currentPt) => 
+    (currentPt.smoothAbs! > maxPt.smoothAbs!) ? currentPt : maxPt
+  , hbCandidates[0]) || currentSpectrum[0];
+  
+  const peakHbWl = hbPt.wl; // Longueur d'onde exacte du pic trouvé
+
   const blPt = currentSpectrum.find(p => p.wl === BL_LAMBDA) || currentSpectrum[0];
 
   const hbDeltaDo = hbPt.smoothAbs! - hbPt.tangent!;
@@ -312,6 +412,14 @@ function updateAnalysis() {
   const warningsList = document.getElementById('warnings-list')!;
   const warningsFooter = document.getElementById('warnings-footer')!;
   
+  const now = new Date();
+  const formattedDate = now.toLocaleDateString('fr-FR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+  const dateEl = document.getElementById('analysis-date');
+  if (dateEl) dateEl.innerText = formattedDate;
+  
   // Amélioration : Affichage automatique de la recommandation si avertissement
   if (warningItems.length > 0) {
     warningsBox.style.display = 'block';
@@ -323,6 +431,8 @@ function updateAnalysis() {
   }
 
   // Amélioration : Ajout des seuils descriptifs (<0.02, etc.) à côté des valeurs
+  document.getElementById('noa-title')!.innerText = `NOA (net oxyhemoglobin absorbance - ${peakHbWl} nm)`;
+  
   document.getElementById('val-noa')!.innerHTML = `${hbDeltaDo.toFixed(4)} <span style="font-size: 1.1rem; font-weight: normal; color: #6b7280;">(${hbConcl})</span>`;
   document.getElementById('val-nba')!.innerHTML = `${blDeltaDo.toFixed(4)} <span style="font-size: 1.1rem; font-weight: normal; color: #6b7280;">(${blConcl})</span>`;
 
@@ -333,12 +443,77 @@ function updateAnalysis() {
   } else {
     conclusionEl.style.backgroundColor = '#dcfce7'; conclusionEl.style.color = '#166534';
   }
+  
+  // Évaluation du point gauche
+  let leftStatus = "HORS LIMITE", leftColor = "#dc2626"; // Rouge
+  if (leftWl >= 350 && leftWl <= 400) {
+    leftStatus = "OK";
+    leftColor = "#166534"; // Vert foncé
+  } else if (leftWl > 400 && leftWl <= 473) {
+    leftStatus = "LIMITE";
+    leftColor = "#d97706"; // Jaune moutarde (lisible sur fond clair)
+  }
+
+  // Évaluation du point droit
+  let rightStatus = "HORS LIMITE", rightColor = "#dc2626"; // Rouge
+  if (rightWl >= 450 && rightWl <= 550) {
+    rightStatus = "OK";
+    rightColor = "#166534"; // Vert foncé
+  }
+
+  // Affichage avec le statut intégré
+  document.getElementById('val-tangent-pts')!.innerHTML = `
+    <div style="display: flex; justify-content: space-between; margin-bottom: 6px; padding-left: 10px; padding-right: 10px;">
+      <span>&bull; gauche : ${leftWl} nm</span>
+      <strong style="color: ${leftColor};">${leftStatus}</strong>
+    </div>
+    <div style="display: flex; justify-content: space-between; padding-left: 10px; padding-right: 10px;">
+      <span>&bull; droite : ${rightWl} nm</span>
+      <strong style="color: ${rightColor};">${rightStatus}</strong>
+    </div>
+  `;
 
   // -- 4. Tracé Plotly --
+  
+  // 1. Filtrer les points du spectre où la tangente est positive (y >= 0)
+  const positiveTangentPoints = currentSpectrum.filter(p => p.tangent !== undefined && p.tangent >= 0);
+  
+  let tangentX = positiveTangentPoints.map(p => p.wl);
+  let tangentY = positiveTangentPoints.map(p => p.tangent!);
+
+  // 2. Calculer l'intersection exacte avec y = 0 pour que la ligne touche l'axe proprement
+  if (ptLeft && ptRight) {
+    const a = (ptRight.smoothAbs! - ptLeft.smoothAbs!) / (rightWl - leftWl);
+    const b = ptRight.smoothAbs! - a * rightWl;
+    
+    if (a !== 0) {
+      const zeroWl = -b / a; // Longueur d'onde où la tangente croise y = 0
+      
+      if (zeroWl >= 350 && zeroWl <= 750) {
+        if (a > 0) {
+          // Si la pente est positive, la tangente passe sous 0 à gauche
+          tangentX.unshift(zeroWl);
+          tangentY.unshift(0);
+        } else {
+          // Si la pente est négative, la tangente passe sous 0 à droite
+          tangentX.push(zeroWl);
+          tangentY.push(0);
+        }
+      }
+    }
+  }
+
+  // 3. Déclaration de la trace avec les données tronquées
   const traceRaw = { x: currentSpectrum.map(p => p.wl), y: currentSpectrum.map(p => p.abs), mode: 'lines', name: 'Brut', line: { color: 'lightgray' } };
   const traceSmooth = { x: currentSpectrum.map(p => p.wl), y: currentSpectrum.map(p => p.smoothAbs), mode: 'lines', name: 'Lissé', line: { color: 'black' } };
-  const traceTangent = { x: currentSpectrum.map(p => p.wl), y: currentSpectrum.map(p => p.tangent), mode: 'lines', name: 'Tangente', line: { color: 'red' } };
   
+  const traceTangent = { 
+    x: tangentX, 
+    y: tangentY, 
+    mode: 'lines', 
+    name: 'Tangente', 
+    line: { color: 'red' } 
+  };  
   const traceTangentPoints = {
       x: [leftWl, rightWl],
       y: [ptLeft?.smoothAbs, ptRight?.smoothAbs],
@@ -348,14 +523,18 @@ function updateAnalysis() {
   // Amélioration : Adaptation de l'échelle d'absorbance (Y-axis)
   const maxAbs = Math.max(...currentSpectrum.map(p => p.abs));
   const yAxisMax = maxAbs > 0.1 ? maxAbs : 0.1;
+  
+  const yaxisConfig = scaleMode === 'zoomed' 
+    ? { title: 'Absorbance', autorange: true }
+    : { title: 'Absorbance', range: [0, yAxisMax] };
 
   const layout = {
     title: 'Spectre d\'absorption',
     xaxis: { title: 'Longueur d\'onde (nm)', range: [350, 750] },
-    yaxis: { title: 'Absorbance', range: [0, yAxisMax] },
+    yaxis: yaxisConfig,
     margin: { t: 40, l: 50, r: 20, b: 40 },
     shapes: [
-        { type: 'line', x0: HB_LAMBDA, y0: 0, x1: HB_LAMBDA, y1: hbPt?.abs || 0.1, line: { color: 'black', dash: 'dot', width: 2 } },
+        { type: 'line', x0: peakHbWl,  y0: 0, x1: peakHbWl,  y1: hbPt?.abs || 0.1, line: { color: 'black', dash: 'dot', width: 2 } },
         { type: 'line', x0: BL_LAMBDA, y0: 0, x1: BL_LAMBDA, y1: blPt?.abs || 0.1, line: { color: 'black', dash: 'dot', width: 2 } }
     ]
   };
