@@ -4,3 +4,5 @@
 /data
 /js/node_modules
 /js/dist
+/js/release
+js/package-lock.json

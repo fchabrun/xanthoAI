@@ -1,20 +1,26 @@
 {
-  "name": "spectro-lcr-electron",
+  "name": "xantho-ai",
   "version": "1.1.0",
   "description": "Analyse spectrophotométrique du LCR",
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc -w",
-    "start": "npm run build && electron .",
-	"dev": "npm run start"
+    "dev": "tsc && electron .",
+    "build": "tsc && electron-builder --win portable"
+  },
+  "build": {
+    "appId": "fr.chu-angers.xanthoai",
+    "productName": "Analyse spectrophotométrique du LCR",
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": ["portable"]
+    }
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "electron": "^28.0.0",
+    "electron-builder": "^24.0.0",
     "typescript": "^5.3.0"
-  },
-  "dependencies": {
-    "plotly.js-dist-min": "^2.29.0"
   }
 }
